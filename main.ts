@@ -14,12 +14,14 @@
 // /output when the variable is absent), creates the folder when it does not
 // exist yet, and copies entry.png into it under the same name. Nothing is
 // fetched, generated or altered along the way, so every run delivers exactly
-// the same bytes.
+// the same bytes. After copying, it reads both files back and refuses to
+// finish unless the copy is byte-for-byte identical to the original, so a
+// truncated or interrupted write can never pass as a finished entry.
 //
 // Run it locally like this:
 //   MAKEFUN_OUTPUT_DIR=./out node main.ts
 
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,5 +33,12 @@ mkdirSync(outDir, { recursive: true });
 
 const target: string = join(outDir, "entry.png");
 copyFileSync(source, target);
+
+// Verify the copy: the runner must receive exactly the finished picture.
+const original: Buffer = readFileSync(source);
+const placed: Buffer = readFileSync(target);
+if (!original.equals(placed)) {
+  throw new Error(`entry.png copy mismatch: ${target} differs from ${source}`);
+}
 
 console.log(`entry.png placed at ${target}`);
